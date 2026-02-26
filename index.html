@@ -1,5 +1,167 @@
-<p>This is my very first website.</p>
-<a href="https://github.com/mwoohoohoo/first-website/tree/main"
-  >View source on GitHub</a
->
-<p>Is this working?</p>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Ensures that we use the correct character encoding and text renders properly -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Responsiveness: make page width match device screen width and no zooming -->
+    <title>My First Website with D3</title>
+
+    <!-- Load D3 from CDN -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 40px auto;
+        line-height: 1.6;
+        color: #333;
+      }
+
+      a {
+        color: #2563eb;
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .chart-container {
+        margin-top: 40px;
+      }
+
+      .bar {
+        fill: steelblue;
+      }
+
+      .bar:hover {
+        fill: orange;
+      }
+
+      .axis-label {
+        font-size: 12px;
+        fill: #555;
+      }
+
+      .title {
+        font-size: 18px;
+        font-weight: bold;
+        text-anchor: middle;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>This is my very first website.</h1>
+
+    <a href="https://github.com/mwoohoohoo/first-website/tree/main">
+      View source on GitHub
+    </a>
+
+    <p>Is this working?</p>
+
+    <div class="chart-container">
+      <svg
+        id="chart"
+        width="700"
+        height="400"
+        role="img"
+        aria-label="Bar chart showing values for A, B, C and D"
+      ></svg>
+    </div>
+
+    <script>
+      // -----------------------
+      // 1️⃣ Our Data
+      // -----------------------
+      const data = [
+        { name: "A", value: 1 },
+        { name: "B", value: 5 },
+        { name: "C", value: 8 },
+        { name: "D", value: 10 },
+      ];
+
+      // -----------------------
+      // 2️⃣ Chart Dimensions
+      // -----------------------
+      const width = 700; // Duplicate the width and height values from the svg created above, so that they can be used in layout calculations by d3
+      const height = 400;
+      const margin = { top: 50, right: 30, bottom: 50, left: 50 }; // Margins inside the SVG allow space for title, axes, tick marks etc
+
+      const svg = d3.select("#chart"); // Tell d3 to find the <svg> element with id chart so we can draw inside it
+
+      // Create inner drawing area using the D3 margin convention:
+      // <g> is an SVG group element. It is a container for shapes.
+      // We shift this "g" group inwards using transform and the margin constants we created above, so the chart is drawn within the margins.
+      // Remember: backticks `` and ${} allow us to insert variables.
+      const chart = svg
+        .append("g")
+        .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+      // The full SVG is 700 × 400, but drawing area is less because of margins. So we compute the actual usable drawing area:
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      // -----------------------
+      // 3️⃣ Scales: functions that convert data values to pixel positions
+      // -----------------------
+
+      // X scale (.scaleBand() is for categorical data. Divides x axis into evenly-sized slots)
+      const xScale = d3
+        .scaleBand()
+        .domain(data.map((d) => d.name)) // domain = data values. The .map() extracts each category name
+        .range([0, innerWidth]) // range defines where we can draw. It is the bounds of the x-axis in terms of pixels
+        .padding(0.3); // padding between the bars, to aid legibility
+
+      // Y scale (values. .scaleLinear() is used for continuous numeric values)
+      const yScale = d3
+        .scaleLinear()
+        .domain([0, d3.max(data, (d) => d.value)]) // domain in this case runs from 0 (start of y axis) to highest data value, which is calculated using d3.max(...)
+        .nice() // Rounds numbers to clean values for axis ticks (improves legibility)
+        .range([innerHeight, 0]); // Range in this case is reversed, because in SVG 0 = top of screen. As y increases, we move down the page
+
+      // -----------------------
+      // 4️⃣ Axes
+      // -----------------------
+      const xAxis = d3.axisBottom(xScale); // Axis generator function based on xScale. Knows the categories, x coordinates and labels
+      const yAxis = d3.axisLeft(yScale); // Same, but for vertical y axis
+
+      // Drawing the x axis
+      chart
+        .append("g") // Axes must live inside a "g" container, because they contain many SVG elements (lines, text labels, tick marks)
+        .attr("transform", `translate(0, ${innerHeight})`) // Move axis from top to bottom of chart (innerHeight = bottom of chart), as chart origin in (0,0) = top left corner
+        .call(xAxis); // Tell d3 to draw axis, complete with line, labels and tick marks
+
+      chart.append("g").call(yAxis); // Simpler code because y axis belongs on left side of chart and left edge of chart is already x = 0
+
+      // -----------------------
+      // 5️⃣ Bars
+      // -----------------------
+      chart
+        .selectAll(".bar") // Select all elements with class .bar inside chart (OK that they don't yet exist)
+        .data(data) // Bind the data - connect dataset to the selected bars
+        .enter() // Selects missing elements i.e. for each data item that doesn’t yet have a rectangle, prepare to create one (that's all our data items)
+        .append("rect") // Create a rectangle for each data point
+        .attr("class", "bar") // Adds a class to the rectangles to allow CSS-styling and selection
+        .attr("x", (d) => xScale(d.name)) // Set horizontal position i.e. for each rectangle, take its name, pass it into Xscale and get back a pixel position
+        .attr("width", xScale.bandwidth()) // Set bar width. scaleBand() automatically calculates how wide each bar slot is, bandwidth returns that value
+        .attr("y", innerHeight) // Each bar starts at the bottom (remember: in SVG bottom = innerHeight)
+        .attr("height", 0) // Each bar has 0 height going down from the y-axis - setting up for animation
+        .transition() // Start defining the animation
+        .duration(800) // Animate any following attribute changes over 800 milliseconds
+        .attr("y", (d) => yScale(d.value)) // Adjust the top of the rectangle to move up, as SVG rectangles grow downwards and otherwise the bar would overflow the y axis
+        .attr("height", (d) => innerHeight - yScale(d.value)); // The bottom of the rectangle is then placed on the y axis by setting height to the difference between innerHeight and the top of the bar
+
+      // -----------------------
+      // 6️⃣ Chart Title
+      // -----------------------
+      svg
+        .append("text")
+        .attr("class", "title")
+        .attr("x", width / 2)
+        .attr("y", 30)
+        .text("Simple D3 Bar Chart");
+    </script>
+  </body>
+</html>
